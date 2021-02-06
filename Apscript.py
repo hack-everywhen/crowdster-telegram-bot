@@ -19,7 +19,7 @@ def start(update, context):
 	username = update.effective_user.full_name
 	
 	print("Hello")
-	update.message.reply_text('Hello ' + str(username) + 'Please select /phone to give us your phone number and /location for location access.',parse_mode=telegram.ParseMode.HTML)
+	update.message.reply_text('Hello ' + str(username) + 'Please select /phone to give us your phone number .',parse_mode=telegram.ParseMode.HTML)
 	
 
 def phone(update, context):
@@ -33,8 +33,11 @@ def phone(update, context):
 
 def contact_callback(update, context):
     contact = update.effective_message.contact
+    global phone
     phone = contact.phone_number
     print(phone)
+    update.message.reply_text("Please share us your location using /location.")
+
 
 def location(update, context):
 	loc_keyboard = KeyboardButton(text="send_location", request_location=True)
@@ -50,8 +53,37 @@ def location_callback(update, context):
         message = update.edited_message
     else:
         message = update.message
+    global current_pos
     current_pos = (message.location.latitude, message.location.longitude)
     print(current_pos)
+    update.message.reply_text("Please report accident using /report.")
+
+def report(update,context):
+    keyboard = [
+        [
+            InlineKeyboardButton("Fire Emergency", callback_data='Fire Emergency'),
+            InlineKeyboardButton("Medical Emergency", callback_data='Medical Emergency'),
+        ],
+        [InlineKeyboardButton("Police", callback_data='Police')],
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.message.reply_text('Please choose:', reply_markup=reply_markup)
+
+def button(update,context):
+    query = update.callback_query
+
+    # CallbackQueries need to be answered, even if no notification to the user is needed
+    # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
+    query.answer()
+    print(query.data)
+
+    query.edit_message_text(text=("Thank You for Reporting accident. Following are the details:\nEmergency: "+query.data+"\n"+"Location: "+"("+str(current_pos[0])+","+str(current_pos[1])+")"+"\n"+"Reference No: "+phone))
+
+
+
+
 
 def error(update, context):
 	logger.warning('Update "%s" caused error "%s"', update, context.error)
@@ -62,6 +94,9 @@ def main():
 	dp.add_handler(CommandHandler('start', start))
 	dp.add_handler(CommandHandler('phone', phone))
 	dp.add_handler(CommandHandler('location', location))
+	dp.add_handler(CommandHandler('report',report))
+	dp.add_handler(CallbackQueryHandler(button))
+
 	location_handler = MessageHandler(Filters.location, location_callback)
 	dp.add_handler(location_handler)
 	dp.add_handler(MessageHandler(Filters.contact, contact_callback))
